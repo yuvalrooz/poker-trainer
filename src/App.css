@@ -106,6 +106,25 @@
 .odds-good { font-size: 0.75rem; font-weight: 700; color: #2ecc71; }
 .odds-bad  { font-size: 0.75rem; font-weight: 700; color: #e74c3c; }
 
+/* ── Equity explainer ──────────────────────────────────────────────────────── */
+.btn-how {
+  background: none; border: none; color: #5a8a6a; font-size: 0.72rem;
+  cursor: pointer; padding: 1px 0; text-decoration: underline dotted;
+}
+.btn-how:hover { color: #8abf9a; }
+.eq-explainer {
+  background: rgba(0,0,0,0.3); border: 1px solid #1f3828; border-radius: 8px;
+  padding: 10px 12px; max-width: 420px; width: 100%;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.eq-exp-intro { font-size: 0.73rem; color: #aaa; line-height: 1.5; }
+.eq-exp-intro strong { color: var(--cream); }
+.eq-exp-samples-label { font-size: 0.68rem; color: #667; text-transform: uppercase; letter-spacing: 1px; }
+.eq-samples { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.eq-samples th { color: #667; font-weight: 600; text-align: left; padding: 2px 5px; border-bottom: 1px solid #1f3828; }
+.eq-samples td { color: #bbb; padding: 3px 5px; }
+.eq-samples tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 .btn { padding: 8px 18px; border: none; border-radius: 7px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: filter 0.1s, transform 0.08s; }
 .btn:hover  { filter: brightness(1.15); }

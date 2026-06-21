@@ -26,6 +26,18 @@ interface DecisionVerdict {
 
 interface EquityResult { win: number; tie: number; lose: number }
 
+interface SampleTrial {
+  extra_community: Card[]; opponent_cards: Card[];
+  hero_rank: string; best_opp_rank: string; result: "Win" | "Tie" | "Lose";
+}
+
+interface EquityDetail {
+  win: number; tie: number; lose: number;
+  trials: number; remaining_deck_size: number;
+  cards_to_come: number; cards_per_opp: number; num_opponents: number;
+  sample_trials: SampleTrial[];
+}
+
 interface GameView {
   players: Player[]; community_cards: Card[]; pot: number; street: string;
   action_history: ActionRecord[]; hero_to_act: boolean; hand_over: boolean;
@@ -88,6 +100,47 @@ function EquityBar({ eq }: { eq: EquityResult }) {
         <span className="eq-tie-lbl">T {eq.tie.toFixed(1)}%</span>
         <span className="eq-lose-lbl">L {eq.lose.toFixed(1)}%</span>
       </div>
+    </div>
+  );
+}
+
+// ── Equity explainer ──────────────────────────────────────────────────────────
+
+function EquityExplainer({ detail }: { detail: EquityDetail }) {
+  const resultColor = (r: string) =>
+    r === "Win" ? "#2ecc71" : r === "Tie" ? "#f39c12" : "#e74c3c";
+
+  return (
+    <div className="eq-explainer">
+      <div className="eq-exp-intro">
+        We deal the remaining <strong>{detail.cards_to_come}</strong> board card{detail.cards_to_come !== 1 ? "s" : ""} and <strong>2 cards</strong> to each of the <strong>{detail.num_opponents}</strong> opponent{detail.num_opponents !== 1 ? "s" : ""} randomly from the <strong>{detail.remaining_deck_size}</strong> unseen cards, then compare the best 5-card hand. We repeat this <strong>{detail.trials.toLocaleString()}</strong> times.
+      </div>
+      <div className="eq-exp-samples-label">5 example simulations:</div>
+      <table className="eq-samples">
+        <thead>
+          <tr>
+            <th>Board dealt</th>
+            <th>Opp cards</th>
+            <th>Your hand</th>
+            <th>Opp hand</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {detail.sample_trials.map((t, i) => (
+            <tr key={i}>
+              <td>{t.extra_community.length > 0
+                ? t.extra_community.map(c => `${["","","2","3","4","5","6","7","8","9","T","J","Q","K","A"][c.rank]}${{"Clubs":"♣","Diamonds":"♦","Hearts":"♥","Spades":"♠"}[c.suit]}`).join(" ")
+                : "—"}
+              </td>
+              <td>{t.opponent_cards.map(c => `${["","","2","3","4","5","6","7","8","9","T","J","Q","K","A"][c.rank]}${{"Clubs":"♣","Diamonds":"♦","Hearts":"♥","Spades":"♠"}[c.suit]}`).join(" ")}</td>
+              <td>{t.hero_rank}</td>
+              <td>{t.best_opp_rank}</td>
+              <td style={{ color: resultColor(t.result), fontWeight: 700 }}>{t.result}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -177,7 +230,9 @@ function ActionLog({ history }: { history: ActionRecord[] }) {
 export default function App() {
   const [game, setGame] = useState<GameView | null>(null);
   const [equity, setEquity] = useState<EquityResult | null>(null);
+  const [equityDetail, setEquityDetail] = useState<EquityDetail | null>(null);
   const [equityOn, setEquityOn] = useState(false);
+  const [showHow, setShowHow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
 
@@ -199,6 +254,8 @@ export default function App() {
   async function startHand() {
     setLoading(true);
     setEquity(null);
+    setEquityDetail(null);
+    setShowHow(false);
     setShowAnalysis(false);
     const view = await invoke<GameView>("new_hand");
     setGame(view);
@@ -209,6 +266,8 @@ export default function App() {
     if (!game || !game.hero_to_act) return;
     setLoading(true);
     setEquity(null);
+    setEquityDetail(null);
+    setShowHow(false);
     const view = await invoke<GameView>("take_action", { action, amount });
     setGame(view);
     if (view.hand_over) setShowAnalysis(true);
@@ -263,6 +322,17 @@ export default function App() {
                 </div>
               );
             })()}
+            <button className="btn-how" onClick={async () => {
+              if (showHow) { setShowHow(false); return; }
+              if (!equityDetail) {
+                const d = await invoke<EquityDetail>("get_equity_detail");
+                setEquityDetail(d);
+              }
+              setShowHow(true);
+            }}>
+              {showHow ? "▲ Hide calculation" : "▼ How is this calculated?"}
+            </button>
+            {showHow && equityDetail && <EquityExplainer detail={equityDetail} />}
           </>
         )}
         {equityOn && !equity && !game.hand_over && <div className="eq-loading">Calculating…</div>}

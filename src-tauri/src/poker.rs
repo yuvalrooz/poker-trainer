@@ -103,6 +103,28 @@ pub struct EquityResult {
     pub lose: f64,
 }
 
+#[derive(Serialize, Clone, Debug)]
+pub struct SampleTrial {
+    pub extra_community: Vec<Card>,
+    pub opponent_cards: Vec<Card>,
+    pub hero_rank: String,
+    pub best_opp_rank: String,
+    pub result: String,
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct EquityDetail {
+    pub win: f64,
+    pub tie: f64,
+    pub lose: f64,
+    pub trials: usize,
+    pub remaining_deck_size: usize,
+    pub cards_to_come: usize,
+    pub cards_per_opp: usize,
+    pub num_opponents: usize,
+    pub sample_trials: Vec<SampleTrial>,
+}
+
 #[derive(Clone, Debug)]
 pub struct DecisionSnapshot {
     pub street: String,
@@ -807,6 +829,114 @@ pub fn calculate_equity(state: &GameState) -> EquityResult {
     }
 
     run_monte_carlo(&hero_cards, &state.community_cards, num_opponents, 10_000)
+}
+
+pub fn calculate_equity_detail(state: &GameState) -> EquityDetail {
+    let hero = state.players.iter().find(|p| p.is_hero);
+    let hero_cards = match hero.and_then(|p| p.hole_cards.as_ref()) {
+        Some(c) => c.clone(),
+        None => return EquityDetail { win: 0.0, tie: 0.0, lose: 100.0, trials: 0, remaining_deck_size: 0, cards_to_come: 0, cards_per_opp: 2, num_opponents: 0, sample_trials: vec![] },
+    };
+    let num_opponents = state.players.iter().filter(|p| !p.is_hero && p.status == PlayerStatus::Active).count();
+    if num_opponents == 0 {
+        return EquityDetail { win: 100.0, tie: 0.0, lose: 0.0, trials: 0, remaining_deck_size: 0, cards_to_come: 0, cards_per_opp: 2, num_opponents: 0, sample_trials: vec![] };
+    }
+    run_monte_carlo_detail(&hero_cards, &state.community_cards, num_opponents, 10_000)
+}
+
+fn hand_category_name(cards: &[RsCard]) -> String {
+    let r = cards.rank();
+    format!("{}", r.category())
+}
+
+fn run_monte_carlo_detail(
+    hero: &[Card; 2],
+    community: &[Card],
+    num_opps: usize,
+    trials: usize,
+) -> EquityDetail {
+    let mut rng = rand::rng();
+
+    let mut remaining: Vec<Card> = full_deck()
+        .into_iter()
+        .filter(|c| !hero.iter().chain(community.iter()).any(|u| u.rank == c.rank && u.suit == c.suit))
+        .collect();
+
+    let cards_to_come = 5 - community.len();
+    let per_trial = 2 * num_opps + cards_to_come;
+
+    if remaining.len() < per_trial {
+        return EquityDetail { win: 50.0, tie: 0.0, lose: 50.0, trials: 0, remaining_deck_size: remaining.len(), cards_to_come, cards_per_opp: 2, num_opponents: num_opps, sample_trials: vec![] };
+    }
+
+    let remaining_deck_size = remaining.len();
+    let (mut wins, mut ties, mut losses) = (0u32, 0u32, 0u32);
+    let mut samples: Vec<SampleTrial> = Vec::new();
+
+    for trial_idx in 0..trials {
+        remaining.shuffle(&mut rng);
+        let mut idx = 0;
+
+        let mut board = community.to_vec();
+        let mut extra: Vec<Card> = Vec::new();
+        for _ in 0..cards_to_come {
+            extra.push(remaining[idx].clone());
+            board.push(remaining[idx].clone());
+            idx += 1;
+        }
+
+        let hero_rs: Vec<RsCard> = hero.iter().chain(board.iter()).map(|c| c.to_rs()).collect();
+        let hero_score = hero_rs.rank();
+
+        let mut best_opp_score = None;
+        let mut first_opp_cards: Vec<Card> = Vec::new();
+        let mut best_opp_rs: Vec<RsCard> = Vec::new();
+
+        for opp_i in 0..num_opps {
+            let c1 = remaining[idx].clone();
+            let c2 = remaining[idx + 1].clone();
+            idx += 2;
+            let opp_rs: Vec<RsCard> = [c1.clone(), c2.clone()].iter().chain(board.iter()).map(|c| c.to_rs()).collect();
+            let score = opp_rs.rank();
+            if best_opp_score.map_or(true, |b: rs_poker::core::Rank| score > b) {
+                best_opp_score = Some(score);
+                best_opp_rs = opp_rs;
+            }
+            if opp_i == 0 {
+                first_opp_cards = vec![c1, c2];
+            }
+        }
+
+        let result = match best_opp_score {
+            None => { wins += 1; "Win" },
+            Some(b) if hero_score > b => { wins += 1; "Win" },
+            Some(b) if hero_score == b => { ties += 1; "Tie" },
+            _ => { losses += 1; "Lose" },
+        };
+
+        if trial_idx < 5 {
+            samples.push(SampleTrial {
+                extra_community: extra,
+                opponent_cards: first_opp_cards,
+                hero_rank: hand_category_name(&hero_rs),
+                best_opp_rank: hand_category_name(&best_opp_rs),
+                result: result.to_string(),
+            });
+        }
+    }
+
+    let t = trials as f64;
+    EquityDetail {
+        win: wins as f64 / t * 100.0,
+        tie: ties as f64 / t * 100.0,
+        lose: losses as f64 / t * 100.0,
+        trials,
+        remaining_deck_size,
+        cards_to_come,
+        cards_per_opp: 2,
+        num_opponents: num_opps,
+        sample_trials: samples,
+    }
 }
 
 fn run_monte_carlo(
