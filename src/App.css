@@ -114,16 +114,17 @@
 .btn-how:hover { color: #8abf9a; }
 .eq-explainer {
   background: rgba(0,0,0,0.3); border: 1px solid #1f3828; border-radius: 6px;
-  padding: 6px 8px; max-width: 300px; width: 100%;
-  display: flex; flex-direction: column; gap: 4px;
+  padding: 7px 10px; max-width: 270px; width: 100%;
+  display: flex; flex-direction: column; gap: 5px;
 }
-.eq-exp-intro { font-size: 0.65rem; color: #999; line-height: 1.4; }
-.eq-exp-intro strong { color: #ddd; }
-.eq-exp-samples-label { font-size: 0.6rem; color: #556; text-transform: uppercase; letter-spacing: 1px; }
-.eq-samples { width: 100%; border-collapse: collapse; font-size: 0.62rem; }
-.eq-samples th { color: #556; font-weight: 600; text-align: left; padding: 1px 4px; border-bottom: 1px solid #1a2f20; }
-.eq-samples td { color: #aaa; padding: 2px 4px; }
-.eq-samples tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+.eq-exp-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.eq-exp-label { font-size: 0.65rem; color: #667; }
+.eq-exp-val   { font-size: 0.68rem; color: #ccc; font-weight: 600; }
+.eq-exp-outs  { display: flex; flex-wrap: wrap; gap: 4px; }
+.eq-out-tag   { background: rgba(255,255,255,0.06); border-radius: 4px; padding: 1px 6px; font-size: 0.63rem; color: #9bc; }
+.eq-exp-rule  { font-size: 0.68rem; color: #aaa; }
+.eq-exp-rule strong { color: #2ecc71; }
+.eq-exp-note  { font-size: 0.6rem; color: #556; }
 
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 .btn { padding: 8px 18px; border: none; border-radius: 7px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: filter 0.1s, transform 0.08s; }

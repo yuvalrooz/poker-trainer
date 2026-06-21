@@ -26,16 +26,11 @@ interface DecisionVerdict {
 
 interface EquityResult { win: number; tie: number; lose: number }
 
-interface SampleTrial {
-  extra_community: Card[]; opponent_cards: Card[];
-  hero_rank: string; best_opp_rank: string; result: "Win" | "Tie" | "Lose";
-}
+interface OutCategory { name: string; count: number; }
 
-interface EquityDetail {
-  win: number; tie: number; lose: number;
-  trials: number; remaining_deck_size: number;
-  cards_to_come: number; cards_per_opp: number; num_opponents: number;
-  sample_trials: SampleTrial[];
+interface HeuristicOdds {
+  current_hand: string; outs: number; cards_to_come: number;
+  multiplier: number; approx_equity: number; out_categories: OutCategory[];
 }
 
 interface GameView {
@@ -106,41 +101,37 @@ function EquityBar({ eq }: { eq: EquityResult }) {
 
 // ── Equity explainer ──────────────────────────────────────────────────────────
 
-function EquityExplainer({ detail }: { detail: EquityDetail }) {
-  const resultColor = (r: string) =>
-    r === "Win" ? "#2ecc71" : r === "Tie" ? "#f39c12" : "#e74c3c";
-
+function EquityExplainer({ odds }: { odds: HeuristicOdds }) {
   return (
     <div className="eq-explainer">
-      <div className="eq-exp-intro">
-        We deal the remaining <strong>{detail.cards_to_come}</strong> board card{detail.cards_to_come !== 1 ? "s" : ""} and <strong>2 cards</strong> to each of the <strong>{detail.num_opponents}</strong> opponent{detail.num_opponents !== 1 ? "s" : ""} randomly from the <strong>{detail.remaining_deck_size}</strong> unseen cards, then compare the best 5-card hand. We repeat this <strong>{detail.trials.toLocaleString()}</strong> times.
+      <div className="eq-exp-row">
+        <span className="eq-exp-label">Current hand</span>
+        <span className="eq-exp-val">{odds.current_hand}</span>
       </div>
-      <div className="eq-exp-samples-label">5 example simulations:</div>
-      <table className="eq-samples">
-        <thead>
-          <tr>
-            <th>Board dealt</th>
-            <th>Opp cards</th>
-            <th>Your hand</th>
-            <th>Opp hand</th>
-            <th>Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          {detail.sample_trials.map((t, i) => (
-            <tr key={i}>
-              <td>{t.extra_community.length > 0
-                ? t.extra_community.map(c => `${["","","2","3","4","5","6","7","8","9","T","J","Q","K","A"][c.rank]}${{"Clubs":"♣","Diamonds":"♦","Hearts":"♥","Spades":"♠"}[c.suit]}`).join(" ")
-                : "—"}
-              </td>
-              <td>{t.opponent_cards.map(c => `${["","","2","3","4","5","6","7","8","9","T","J","Q","K","A"][c.rank]}${{"Clubs":"♣","Diamonds":"♦","Hearts":"♥","Spades":"♠"}[c.suit]}`).join(" ")}</td>
-              <td>{t.hero_rank}</td>
-              <td>{t.best_opp_rank}</td>
-              <td style={{ color: resultColor(t.result), fontWeight: 700 }}>{t.result}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {odds.outs > 0 ? (
+        <>
+          <div className="eq-exp-row">
+            <span className="eq-exp-label">Outs</span>
+            <span className="eq-exp-val">{odds.outs} cards improve your hand</span>
+          </div>
+          <div className="eq-exp-outs">
+            {odds.out_categories.map((c, i) => (
+              <span key={i} className="eq-out-tag">{c.count}× {c.name}</span>
+            ))}
+          </div>
+          <div className="eq-exp-rule">
+            Rule of {odds.multiplier}: {odds.outs} outs × {odds.multiplier} ={" "}
+            <strong>~{odds.approx_equity.toFixed(0)}%</strong>
+            <span className="eq-exp-note">
+              {odds.cards_to_come === 2
+                ? " (×4 = 2 cards to come)"
+                : " (×2 = 1 card to come)"}
+            </span>
+          </div>
+        </>
+      ) : (
+        <div className="eq-exp-note">No improving cards found — you may already have the best hand.</div>
+      )}
     </div>
   );
 }
@@ -230,7 +221,7 @@ function ActionLog({ history }: { history: ActionRecord[] }) {
 export default function App() {
   const [game, setGame] = useState<GameView | null>(null);
   const [equity, setEquity] = useState<EquityResult | null>(null);
-  const [equityDetail, setEquityDetail] = useState<EquityDetail | null>(null);
+  const [heuristicOdds, setHeuristicOdds] = useState<HeuristicOdds | null>(null);
   const [equityOn, setEquityOn] = useState(false);
   const [showHow, setShowHow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -254,7 +245,7 @@ export default function App() {
   async function startHand() {
     setLoading(true);
     setEquity(null);
-    setEquityDetail(null);
+    setHeuristicOdds(null);
     setShowHow(false);
     setShowAnalysis(false);
     const view = await invoke<GameView>("new_hand");
@@ -266,7 +257,7 @@ export default function App() {
     if (!game || !game.hero_to_act) return;
     setLoading(true);
     setEquity(null);
-    setEquityDetail(null);
+    setHeuristicOdds(null);
     setShowHow(false);
     const view = await invoke<GameView>("take_action", { action, amount });
     setGame(view);
@@ -324,15 +315,15 @@ export default function App() {
             })()}
             <button className="btn-how" onClick={async () => {
               if (showHow) { setShowHow(false); return; }
-              if (!equityDetail) {
-                const d = await invoke<EquityDetail>("get_equity_detail");
-                setEquityDetail(d);
+              if (!heuristicOdds) {
+                const d = await invoke<HeuristicOdds | null>("get_heuristic_odds");
+                if (d) setHeuristicOdds(d);
               }
               setShowHow(true);
             }}>
               {showHow ? "▲ Hide calculation" : "▼ How is this calculated?"}
             </button>
-            {showHow && equityDetail && <EquityExplainer detail={equityDetail} />}
+            {showHow && heuristicOdds && <EquityExplainer odds={heuristicOdds} />}
           </>
         )}
         {equityOn && !equity && !game.hand_over && <div className="eq-loading">Calculating…</div>}
