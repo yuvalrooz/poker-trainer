@@ -245,7 +245,26 @@ export default function App() {
           {game.community_cards.map((c, i) => <CardFace key={i} card={c} />)}
         </div>
         <div className="pot-label">Pot: {game.pot.toLocaleString()}</div>
-        {equityOn && equity && <EquityBar eq={equity} />}
+        {equityOn && equity && (
+          <>
+            <EquityBar eq={equity} />
+            {game.hero_to_act && game.legal_actions.can_call && (() => {
+              const potOdds = game.legal_actions.call_amount /
+                (game.pot + game.legal_actions.call_amount) * 100;
+              const hasEdge = (equity.win + equity.tie * 0.5) >= potOdds;
+              return (
+                <div className="pot-odds-row">
+                  <span className="pot-odds-label">
+                    Pot odds: <strong>{potOdds.toFixed(1)}%</strong>
+                  </span>
+                  <span className={`pot-odds-verdict ${hasEdge ? "odds-good" : "odds-bad"}`}>
+                    {hasEdge ? "▲ call has +EV" : "▼ call is -EV"}
+                  </span>
+                </div>
+              );
+            })()}
+          </>
+        )}
         {equityOn && !equity && !game.hand_over && <div className="eq-loading">Calculating…</div>}
       </div>
 

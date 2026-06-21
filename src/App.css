@@ -99,6 +99,13 @@
 .eq-lose-lbl { color: #e74c3c; }
 .eq-loading  { font-size: 0.75rem; color: #889; font-style: italic; }
 
+/* ── Pot odds row ──────────────────────────────────────────────────────────── */
+.pot-odds-row { display: flex; align-items: center; gap: 10px; }
+.pot-odds-label { font-size: 0.78rem; color: #aaa; }
+.pot-odds-label strong { color: var(--cream); }
+.odds-good { font-size: 0.75rem; font-weight: 700; color: #2ecc71; }
+.odds-bad  { font-size: 0.75rem; font-weight: 700; color: #e74c3c; }
+
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 .btn { padding: 8px 18px; border: none; border-radius: 7px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: filter 0.1s, transform 0.08s; }
 .btn:hover  { filter: brightness(1.15); }
